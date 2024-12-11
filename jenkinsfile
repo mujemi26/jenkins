@@ -17,8 +17,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
-                // Checkout code from the repository
-                git branch: 'main', 
+                // Checkout code from the repository 
                 git branch: 'main', url: 'https://github.com/mujemi26/jenkins.git'
             }
         }
