@@ -6,7 +6,7 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
         DOCKER_IMAGE_NAME = 'mujemi26/lab-app'
         GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
-        KIND_CLUSTER_NAME = 'jenkins-kind-cluster'
+        KIND_CLUSTER_NAME = 'kind-kind'
     }
 
 
