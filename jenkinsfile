@@ -22,19 +22,7 @@ pipeline {
             }
         }
 
-        stage('Prepare Environment') {
-            steps {
-                script {
-                    // Ensure Docker and other tools are available
-                    sh '''
-                        which docker
-                        docker --version
-                        which kubectl
-                        kubectl version --client
-                    '''
-                }
-            }
-        }
+       
 
         stage('Build Docker Image') {
             steps {
