@@ -45,27 +45,27 @@ pipeline {
 
 
        stage('Deploy to Kind Cluster') {
-    steps {
-        script {
-            // Use the kubeconfig file stored in Jenkins credentials
-            withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
-                sh """
-                    # Export kubeconfig to use with kubectl
-                    export KUBECONFIG=${KUBECONFIG_FILE}
-
-                    # Ensure Kind cluster exists
-                    if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
-                        kind create cluster --name ${KIND_CLUSTER_NAME}
-                    fi
-
-                    # Set kubectl context
-                    kubectl config use-context kind-${KIND_CLUSTER_NAME}
-
-                    # Load image to Kind cluster
-                    kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
-
-                    # Create deployment file
-                    cat > deployment.yaml << EOF
+            steps {
+                script {
+                    // Use the kubeconfig file stored in Jenkins credentials
+                    withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                        sh """
+                            # Export kubeconfig to use with kubectl
+                            export KUBECONFIG=${KUBECONFIG_FILE}
+        
+                            # Ensure Kind cluster exists
+                            if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
+                                kind create cluster --name ${KIND_CLUSTER_NAME}
+                            fi
+        
+                            # Set kubectl context
+                            kubectl config use-context kind-${KIND_CLUSTER_NAME}
+        
+                            # Load image to Kind cluster
+                            kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
+        
+                            # Create deployment file
+                            cat > deployment.yaml << EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -113,6 +113,7 @@ EOF
         }
     }
 }
+
 
 
     post {
