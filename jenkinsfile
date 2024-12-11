@@ -7,6 +7,9 @@ pipeline {
         GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
         KIND_CLUSTER_NAME = 'kind-kind'
         KUBECONFIG_FILE = 'kind-kubeconfig'
+        KIND_HOME = '\$HOME/.config/kind'
+        KUBE_CONFIG_PATH = '\$HOME/.kube/config'
+        
     }
 
     stages {
