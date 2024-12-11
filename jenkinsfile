@@ -19,7 +19,7 @@ pipeline {
             steps {
                 // Checkout code from the repository
                 git branch: 'main', 
-                    url: "${GITHUB_REPO_URL}"
+                git url: "${GITHUB_REPO_URL}", branch: 'main'
             }
         }
 
