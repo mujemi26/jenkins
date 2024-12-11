@@ -1,66 +1,59 @@
 pipeline {
-    agent {
-        docker {
-            image 'docker:latest'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -v /home/jenkins:/home/jenkins -e HOME=/home/jenkins'
-        }
-    }
+    // Remove the Docker agent and use the default Jenkins agent
+    agent any
 
     environment {
-        KUBECONFIG = credentials('kind-kubeconfig')
         DOCKER_HUB_CREDENTIALS = credentials('dockerhub-credentials')
-        DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
+        DOCKER_IMAGE_NAME = 'mujemi26/lab-app'
+        GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
         KIND_CLUSTER_NAME = 'jenkins-kind-cluster'
     }
 
+    tools {
+        // Ensure Docker is available
+        dockerTool 'docker'
+    }
+
     stages {
-        stage('Prerequisite Setup') {
+        stage('Checkout Code') {
+            steps {
+                // Checkout code from the repository
+                git branch: 'main', 
+                    url: "${GITHUB_REPO_URL}"
+            }
+        }
+
+        stage('Prepare Environment') {
             steps {
                 script {
+                    // Ensure Docker and other tools are available
                     sh '''
-                        # Install required tools
-                        apk add --no-cache \
-                            curl \
-                            docker \
-                            kubectl \
-                            git
-
-                        # Install Kind if not already installed
-                        if ! command -v kind &> /dev/null; then
-                            curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
-                            chmod +x ./kind
-                            mv ./kind /usr/local/bin/kind
-                        fi
+                        which docker
+                        docker --version
+                        which kubectl
+                        kubectl version --client
                     '''
                 }
             }
         }
 
-        stage('Checkout Code') {
-            steps {
-                git branch: 'main', 
-                    url: 'https://github.com/mujemi26/jenkins.git'
-            }
-        }
-
         stage('Build Docker Image') {
             steps {
-                script {
-                    sh """
-                        docker build -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} .
-                    """
-                }
+                // Build Docker image using shell command
+                sh """
+                    docker build -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} .
+                """
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
-                script {
+                // Login and push image
+                withDockerRegistry([credentialsId: 'dockerhub-credentials', url: '']) {
                     sh """
-                        echo ${DOCKER_HUB_CREDENTIALS_PSW} | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin
                         docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}
                         docker tag ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ${DOCKER_IMAGE_NAME}:latest
-                        
+                        docker push ${DOCKER_IMAGE_NAME}:latest
                     """
                 }
             }
@@ -69,16 +62,17 @@ pipeline {
         stage('Deploy to Kind Cluster') {
             steps {
                 script {
+                    // Ensure Kind cluster exists and set context
                     sh '''
-                        # Ensure Kind cluster exists
+                        # Create Kind cluster if not exists
                         if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
                             kind create cluster --name ${KIND_CLUSTER_NAME}
                         fi
 
-                        # Set kubectl context to Kind cluster
+                        # Set kubectl context
                         kubectl config use-context kind-${KIND_CLUSTER_NAME}
 
-                        # Load local image to Kind cluster
+                        # Load image to Kind cluster
                         kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
 
                         # Create deployment file
@@ -120,7 +114,7 @@ EOF
                         # Apply deployment
                         kubectl apply -f deployment.yaml
                         
-                        # Wait and verify deployment
+                        # Verify deployment
                         kubectl rollout status deployment/lab-app-deployment
                         kubectl get deployments
                         kubectl get services
@@ -133,14 +127,14 @@ EOF
 
     post {
         success {
-            echo "Deployment to Kind cluster completed successfully!"
+            echo "Deployment completed successfully!"
         }
         failure {
-            echo "Deployment to Kind cluster failed. Check logs."
+            echo "Deployment failed. Check logs."
         }
         always {
+            // Cleanup
             sh '''
-                # Cleanup
                 docker logout
                 docker image prune -f
             '''
