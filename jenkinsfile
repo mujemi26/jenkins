@@ -5,22 +5,10 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
         DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
         GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
-        KIND_CLUSTER_NAME = 'kind'
+        KIND_CLUSTER_NAME = 'kind-kind-kind'
     }
 
     stages {
-        stage('Install Kind') {
-            steps {
-                sh '''
-                    if ! command -v kind &> /dev/null; then
-                        curl -Lo kind https://kind.sigs.k8s.io/dl/v0.18.0/kind-linux-amd64
-                        chmod +x kind
-                        sudo mv kind /usr/local/bin/
-                    fi
-                '''
-            }
-        }
-
         stage('Checkout Code') {
             steps {
                 // Checkout code from the repository 
