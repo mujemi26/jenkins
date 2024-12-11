@@ -1,5 +1,4 @@
 pipeline {
-    // Remove the Docker agent and use the default Jenkins agent
     agent any
 
     environment {
@@ -9,7 +8,6 @@ pipeline {
         KIND_CLUSTER_NAME = 'kind-kind'
     }
 
-
     stages {
         stage('Checkout Code') {
             steps {
@@ -17,8 +15,6 @@ pipeline {
                 git branch: 'main', url: 'https://github.com/mujemi26/jenkins.git'
             }
         }
-
-       
 
         stage('Build Docker Image') {
             steps {
@@ -42,9 +38,7 @@ pipeline {
             }
         }
 
-
-
-       stage('Deploy to Kind Cluster') {
+        stage('Deploy to Kind Cluster') {
             steps {
                 script {
                     // Use the kubeconfig file stored in Jenkins credentials
@@ -52,19 +46,19 @@ pipeline {
                         sh """
                             # Export kubeconfig to use with kubectl
                             export KUBECONFIG=${KUBECONFIG_FILE}
-        
+
                             # Ensure Kind cluster exists
                             if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
                                 kind create cluster --name ${KIND_CLUSTER_NAME}
                             fi
-        
+
                             # Set kubectl context
                             kubectl config use-context kind-${KIND_CLUSTER_NAME}
-        
-                            # Load image to Kind cluster
+
+                            # Load Docker image to Kind cluster
                             kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
-        
-                            # Create deployment file
+
+                            # Create Kubernetes deployment manifest
                             cat > deployment.yaml << EOF
 apiVersion: apps/v1
 kind: Deployment
@@ -100,21 +94,18 @@ spec:
       nodePort: 30080
 EOF
 
-                    # Apply deployment
-                    kubectl apply -f deployment.yaml
-                    
-                    # Verify deployment
-                    kubectl rollout status deployment/lab-app-deployment
-                    kubectl get deployments
-                    kubectl get services
-                    kubectl get pods
-                """
+                            # Apply the deployment and verify
+                            kubectl apply -f deployment.yaml
+                            kubectl rollout status deployment/lab-app-deployment
+                            kubectl get deployments
+                            kubectl get services
+                            kubectl get pods
+                        """
+                    }
+                }
             }
         }
     }
-}
-
-
 
     post {
         success {
@@ -124,7 +115,7 @@ EOF
             echo "Deployment failed. Check logs."
         }
         always {
-            // Cleanup
+            // Cleanup resources
             sh '''
                 docker logout
                 docker image prune -f
