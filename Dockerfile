@@ -1,17 +1,14 @@
-# Use the official Python image as a base image
-FROM python:3.8-slim
+# Use an official base image
+FROM nginx:alpine
 
-# Set the working directory in the container
-WORKDIR /app
+# Set working directory in the container
+WORKDIR /usr/share/nginx/html
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+# Copy files from your local machine to the container
+COPY . .
 
-# Install any dependencies specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Expose port 80
+EXPOSE 80
 
-# Expose the port on which the app will run
-EXPOSE 5000
-
-# Run the command to start the app
-CMD ["python", "app.py"]
+# Command to run when container starts
+CMD ["nginx", "-g", "daemon off;"]
