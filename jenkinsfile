@@ -6,6 +6,7 @@ pipeline {
         DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
         GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
         KIND_CLUSTER_NAME = 'kind-kind-kind'
+        KUBECONFIG_FILE   = 'kind-kubeconfig'
     }
 
     stages {
