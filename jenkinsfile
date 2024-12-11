@@ -75,25 +75,21 @@ pipeline {
                 script {
                     withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
                         sh """
-                            # Export kubeconfig to use with kubectl
+                            # Set KUBECONFIG
                             export KUBECONFIG=${KUBECONFIG_FILE}
 
-                            # Verify cluster exists
-                            if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
-                                echo "Creating new Kind cluster..."
-                                kind create cluster --name ${KIND_CLUSTER_NAME}
-                            fi
+                            # Verify cluster and context
+                            echo "Available clusters:"
+                            kind get clusters
+                            
+                            echo "Current context:"
+                            kubectl config current-context
 
-                            # Get and verify context
-                            CONTEXT_NAME=\$(kubectl config get-contexts -o name | grep ${KIND_CLUSTER_NAME})
-                            echo "Using context: \${CONTEXT_NAME}"
-                            kubectl config use-context \${CONTEXT_NAME}
-
-                            # Load image to Kind
+                            # Load image to Kind cluster
                             echo "Loading image to Kind cluster..."
                             kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
 
-                            # Create and apply deployment
+                            # Create deployment and service
                             cat > deployment.yaml << EOF
 apiVersion: apps/v1
 kind: Deployment
@@ -114,12 +110,13 @@ spec:
         image: ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}
         ports:
         - containerPort: 80
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 80
-          initialDelaySeconds: 5
-          periodSeconds: 5
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "250m"
+          limits:
+            memory: "128Mi"
+            cpu: "500m"
 ---
 apiVersion: v1
 kind: Service
@@ -135,29 +132,52 @@ spec:
       nodePort: 30080
 EOF
 
-                            # Apply and verify deployment
+                            # Apply deployment
                             kubectl apply -f deployment.yaml
+                            
+                            # Wait for deployment to be ready
                             kubectl rollout status deployment/lab-app-deployment --timeout=300s
                             
-                            echo "Deployment Status:"
-                            kubectl get deployments,services,pods -o wide
+                            # Get deployment status
+                            echo "Deployment status:"
+                            kubectl get deployments -o wide
+                            kubectl get pods -o wide
+                            kubectl get services
+                            
+                            # Get NodePort URL
+                            echo "Application should be accessible at: http://localhost:30080"
                         """
                     }
                 }
             }
         }
 
-        stage('Verify Deployment') {
+        stage('Verify Kind Deployment') {
             steps {
                 script {
-                    sh """
-                        export KUBECONFIG=${KUBECONFIG_FILE}
-                        
-                        # Wait for pods to be ready
-                        kubectl wait --for=condition=ready pods -l app=lab-app --timeout=300s
-                        
-                        echo "Application should be accessible at http://localhost:30080"
-                    """
+                    withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                        sh """
+                            export KUBECONFIG=${KUBECONFIG_FILE}
+                            
+                            echo "Checking pod status..."
+                            kubectl get pods -l app=lab-app
+                            
+                            echo "Checking pod logs..."
+                            for pod in \$(kubectl get pods -l app=lab-app -o name); do
+                                echo "Logs for \$pod:"
+                                kubectl logs \$pod
+                            done
+                            
+                            echo "Checking service..."
+                            kubectl get service lab-app-service
+                            
+                            echo "Testing application endpoint..."
+                            curl -v http://localhost:30080 || true
+                            
+                            echo "Detailed pod information:"
+                            kubectl describe pods -l app=lab-app
+                        """
+                    }
                 }
             }
         }
@@ -165,27 +185,43 @@ EOF
 
     post {
         success {
-            echo "Deployment completed successfully!"
-            sh """
-                export KUBECONFIG=${KUBECONFIG_FILE}
-                echo "Final Deployment Status:"
-                kubectl get pods -o wide
-                kubectl get services
-            """
+            script {
+                withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG_FILE}
+                        echo "Deployment successful!"
+                        echo "Application is accessible at: http://localhost:30080"
+                        echo "Pod status:"
+                        kubectl get pods -l app=lab-app
+                        echo "Service status:"
+                        kubectl get service lab-app-service
+                    """
+                }
+            }
         }
         failure {
-            echo "Deployment failed. Check logs."
-            sh """
-                export KUBECONFIG=${KUBECONFIG_FILE}
-                echo "Pod Status:"
-                kubectl get pods
-                kubectl describe pods
-            """
+            script {
+                withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                    sh """
+                        export KUBECONFIG=${KUBECONFIG_FILE}
+                        echo "Deployment failed - collecting debug information"
+                        echo "Pod status:"
+                        kubectl get pods -l app=lab-app
+                        echo "Pod descriptions:"
+                        kubectl describe pods -l app=lab-app
+                        echo "Pod logs:"
+                        for pod in \$(kubectl get pods -l app=lab-app -o name); do
+                            echo "Logs for \$pod:"
+                            kubectl logs \$pod
+                        done
+                    """
+                }
+            }
         }
         always {
             sh """
                 echo "Cleaning up resources..."
-                docker rmi ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} || true
+                docker rmi ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} || true
                 docker rmi ${DOCKER_IMAGE_NAME}:latest || true
                 docker logout
                 docker image prune -f
