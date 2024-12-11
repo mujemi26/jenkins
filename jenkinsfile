@@ -4,7 +4,7 @@ pipeline {
 
     environment {
         DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
-        DOCKER_IMAGE_NAME = 'mujemi26/lab-app'
+        DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
         GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
         KIND_CLUSTER_NAME = 'kind-kind'
     }
