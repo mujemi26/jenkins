@@ -48,11 +48,6 @@ pipeline {
                             # Export kubeconfig to use with kubectl
                             export KUBECONFIG=${KUBECONFIG_FILE}
 
-                            # Ensure Kind cluster exists
-                            if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
-                                kind create cluster --name ${KIND_CLUSTER_NAME}
-                            fi
-
                             # Set kubectl context
                             kubectl config use-context kind-${KIND_CLUSTER_NAME}
 
