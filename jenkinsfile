@@ -3,16 +3,12 @@ pipeline {
     agent any
 
     environment {
-        DOCKER_HUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
         DOCKER_IMAGE_NAME = 'mujemi26/lab-app'
         GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
         KIND_CLUSTER_NAME = 'jenkins-kind-cluster'
     }
 
-    tools {
-        // Ensure Docker is available
-        dockerTool 'docker'
-    }
 
     stages {
         stage('Checkout Code') {
@@ -45,6 +41,8 @@ pipeline {
                 }
             }
         }
+
+
 
         stage('Deploy to Kind Cluster') {
             steps {
