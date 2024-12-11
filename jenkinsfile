@@ -19,7 +19,7 @@ pipeline {
             steps {
                 // Checkout code from the repository
                 git branch: 'main', 
-                git url: 'https://github.com/mujemi26/jenkins.git', branch: 'main'
+                git branch: 'main', url: 'https://github.com/mujemi26/jenkins.git'
             }
         }
 
