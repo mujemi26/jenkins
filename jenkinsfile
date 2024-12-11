@@ -1,0 +1,149 @@
+pipeline {
+    agent {
+        docker {
+            image 'docker:latest'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v /home/jenkins:/home/jenkins -e HOME=/home/jenkins'
+        }
+    }
+
+    environment {
+        KUBECONFIG = credentials('kind-kubeconfig')
+        DOCKER_HUB_CREDENTIALS = credentials('dockerhub-credentials')
+        DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
+        KIND_CLUSTER_NAME = 'jenkins-kind-cluster'
+    }
+
+    stages {
+        stage('Prerequisite Setup') {
+            steps {
+                script {
+                    sh '''
+                        # Install required tools
+                        apk add --no-cache \
+                            curl \
+                            docker \
+                            kubectl \
+                            git
+
+                        # Install Kind if not already installed
+                        if ! command -v kind &> /dev/null; then
+                            curl -Lo ./kind https://kind.sigs.k8s.io/dl/v0.20.0/kind-linux-amd64
+                            chmod +x ./kind
+                            mv ./kind /usr/local/bin/kind
+                        fi
+                    '''
+                }
+            }
+        }
+
+        stage('Checkout Code') {
+            steps {
+                git branch: 'main', 
+                    url: 'https://github.com/mujemi26/jenkins.git'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    sh """
+                        docker build -t ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} .
+                    """
+                }
+            }
+        }
+
+        stage('Push to Docker Hub') {
+            steps {
+                script {
+                    sh """
+                        echo ${DOCKER_HUB_CREDENTIALS_PSW} | docker login -u ${DOCKER_HUB_CREDENTIALS_USR} --password-stdin
+                        docker push ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER}
+                        docker tag ${DOCKER_IMAGE_NAME}:${env.BUILD_NUMBER} ${DOCKER_IMAGE_NAME}:latest
+                        docker push ${DOCKER_IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+
+        stage('Deploy to Kind Cluster') {
+            steps {
+                script {
+                    sh '''
+                        # Ensure Kind cluster exists
+                        if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
+                            kind create cluster --name ${KIND_CLUSTER_NAME}
+                        fi
+
+                        # Set kubectl context to Kind cluster
+                        kubectl config use-context kind-${KIND_CLUSTER_NAME}
+
+                        # Load local image to Kind cluster
+                        kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
+
+                        # Create deployment file
+                        cat > deployment.yaml << EOF
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-app-deployment
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lab-app
+  template:
+    metadata:
+      labels:
+        app: lab-app
+    spec:
+      containers:
+      - name: lab-app
+        image: ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER}
+        ports:
+        - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-app-service
+spec:
+  type: NodePort
+  selector:
+    app: lab-app
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30080
+EOF
+
+                        # Apply deployment
+                        kubectl apply -f deployment.yaml
+                        
+                        # Wait and verify deployment
+                        kubectl rollout status deployment/lab-app-deployment
+                        kubectl get deployments
+                        kubectl get services
+                        kubectl get pods
+                    '''
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Deployment to Kind cluster completed successfully!"
+        }
+        failure {
+            echo "Deployment to Kind cluster failed. Check logs."
+        }
+        always {
+            sh '''
+                # Cleanup
+                docker logout
+                docker image prune -f
+            '''
+        }
+    }
+}
