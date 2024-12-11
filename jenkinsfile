@@ -6,7 +6,7 @@ pipeline {
         DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
         DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
         GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
-        KIND_CLUSTER_NAME = 'kind'
+        KIND_CLUSTER_NAME = 'kind-kind'
     }
 
 
@@ -44,24 +44,28 @@ pipeline {
 
 
 
-        stage('Deploy to Kind Cluster') {
-            steps {
-                script {
-                    // Ensure Kind cluster exists and set context
-                    sh '''
-                        # Create Kind cluster if not exists
-                        if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
-                            kind create cluster --name ${KIND_CLUSTER_NAME}
-                        fi
+       stage('Deploy to Kind Cluster') {
+    steps {
+        script {
+            // Use the kubeconfig file stored in Jenkins credentials
+            withCredentials([file(credentialsId: 'kind-kubeconfig', variable: 'KUBECONFIG_FILE')]) {
+                sh """
+                    # Export kubeconfig to use with kubectl
+                    export KUBECONFIG=${KUBECONFIG_FILE}
 
-                        # Set kubectl context
-                        kubectl config use-context kind-${KIND_CLUSTER_NAME}
+                    # Ensure Kind cluster exists
+                    if ! kind get clusters | grep -q ${KIND_CLUSTER_NAME}; then
+                        kind create cluster --name ${KIND_CLUSTER_NAME}
+                    fi
 
-                        # Load image to Kind cluster
-                        kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
+                    # Set kubectl context
+                    kubectl config use-context kind-${KIND_CLUSTER_NAME}
 
-                        # Create deployment file
-                        cat > deployment.yaml << EOF
+                    # Load image to Kind cluster
+                    kind load docker-image ${DOCKER_IMAGE_NAME}:${BUILD_NUMBER} --name ${KIND_CLUSTER_NAME}
+
+                    # Create deployment file
+                    cat > deployment.yaml << EOF
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -96,19 +100,20 @@ spec:
       nodePort: 30080
 EOF
 
-                        # Apply deployment
-                        kubectl apply -f deployment.yaml
-                        
-                        # Verify deployment
-                        kubectl rollout status deployment/lab-app-deployment
-                        kubectl get deployments
-                        kubectl get services
-                        kubectl get pods
-                    '''
-                }
+                    # Apply deployment
+                    kubectl apply -f deployment.yaml
+                    
+                    # Verify deployment
+                    kubectl rollout status deployment/lab-app-deployment
+                    kubectl get deployments
+                    kubectl get services
+                    kubectl get pods
+                """
             }
         }
     }
+}
+
 
     post {
         success {
