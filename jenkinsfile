@@ -8,13 +8,13 @@ pipeline {
             dockerImageName: 'mujimmy/lab-app'
         )
         
-        DOCKER_HUB_CREDENTIALS = config.DOCKER_HUB_CREDENTIALS
-        DOCKER_IMAGE_NAME = config.DOCKER_IMAGE_NAME
-        GITHUB_REPO_URL = config.GITHUB_REPO_URL
-        KIND_CLUSTER_NAME = config.KIND_CLUSTER_NAME
-        KUBECONFIG_FILE = config.KUBECONFIG_FILE
-        KIND_HOME = config.KIND_HOME
-        KUBE_CONFIG_PATH = config.KUBE_CONFIG_PATH
+        DOCKER_HUB_CREDENTIALS = 'config.DOCKER_HUB_CREDENTIALS'
+        DOCKER_IMAGE_NAME = 'config.DOCKER_IMAGE_NAME'
+        GITHUB_REPO_URL = 'config.GITHUB_REPO_URL'
+        KIND_CLUSTER_NAME = 'config.KIND_CLUSTER_NAME'
+        KUBECONFIG_FILE = 'config.KUBECONFIG_FILE'
+        KIND_HOME = 'config.KIND_HOME'
+        KUBE_CONFIG_PATH = 'config.KUBE_CONFIG_PATH'
     }
 
     stages {
