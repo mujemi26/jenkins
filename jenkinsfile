@@ -20,7 +20,7 @@ pipeline {
     stages {
         stage('Validate Environment') {
             steps {
-                validateEnv()
+                validateEnvironment()
             }
         }
 
