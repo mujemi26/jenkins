@@ -1,26 +1,19 @@
-@Library('jenkins-shared-lib') _
+@Library('jenkins-shared-library') _
 
 pipeline {
     agent any
 
     environment {
-        def config = pipelineConfig(
-            dockerImageName: 'mujimmy/lab-app'
-        )
-        
-        DOCKER_HUB_CREDENTIALS = 'config.DOCKER_HUB_CREDENTIALS'
-        DOCKER_IMAGE_NAME = 'config.DOCKER_IMAGE_NAME'
-        GITHUB_REPO_URL = 'config.GITHUB_REPO_URL'
-        KIND_CLUSTER_NAME = 'config.KIND_CLUSTER_NAME'
-        KUBECONFIG_FILE = 'config.KUBECONFIG_FILE'
-        KIND_HOME = 'config.KIND_HOME'
-        KUBE_CONFIG_PATH = 'config.KUBE_CONFIG_PATH'
+        DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
+        DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
+        KIND_CLUSTER_NAME = 'kind-kind'
+        KUBECONFIG_FILE = 'kind-kubeconfig'
     }
 
     stages {
         stage('Validate Environment') {
             steps {
-                validateEnv()
+                validateEnvironment()
             }
         }
 
@@ -32,38 +25,32 @@ pipeline {
 
         stage('Build Docker Image') {
             steps {
-                buildImage()
+                buildDockerImage(DOCKER_IMAGE_NAME, env.BUILD_NUMBER)
             }
         }
 
         stage('Push to Docker Hub') {
             steps {
-                pushImage()
+                pushToDockerHub(DOCKER_IMAGE_NAME, env.BUILD_NUMBER, DOCKER_HUB_CREDENTIALS)
             }
         }
 
         stage('Deploy to Kind Cluster') {
             steps {
-                deployToKind()
+                deployToKindCluster(DOCKER_IMAGE_NAME, env.BUILD_NUMBER, KUBECONFIG_FILE, KIND_CLUSTER_NAME)
             }
         }
 
         stage('Verify Kind Deployment') {
             steps {
-                verifyDeployment()
+                verifyKindDeployment(KUBECONFIG_FILE)
             }
         }
     }
 
     post {
-        success {
-            handleSuccess()
-        }
-        failure {
-            handleFailure()
-        }
         always {
-            cleanupResources()
+            cleanWs()
         }
     }
 }
