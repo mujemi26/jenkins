@@ -1,20 +1,17 @@
-@Library('ivolve-shared-lib') _
+@Library("ivolve-shared-lib@main") _
 
 pipeline {
     agent any
 
-    environment {
-        def config = pipelineConfig(
-            dockerImageName: 'mujimmy/lab-app'
-        )
+  environment {
+        DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
+        DOCKER_IMAGE_NAME = 'mujimmy/lab-app'
+        GITHUB_REPO_URL = 'https://github.com/mujemi26/jenkins.git'
+        KIND_CLUSTER_NAME = 'kind-kind'
+        KUBECONFIG_FILE = 'kind-kubeconfig'
+        KIND_HOME = '\$HOME/.config/kind'
+        KUBE_CONFIG_PATH = '\$HOME/.kube/config'
         
-        DOCKER_HUB_CREDENTIALS = 'config.DOCKER_HUB_CREDENTIALS'
-        DOCKER_IMAGE_NAME = 'config.DOCKER_IMAGE_NAME'
-        GITHUB_REPO_URL = 'config.GITHUB_REPO_URL'
-        KIND_CLUSTER_NAME = 'config.KIND_CLUSTER_NAME'
-        KUBECONFIG_FILE = 'config.KUBECONFIG_FILE'
-        KIND_HOME = 'config.KIND_HOME'
-        KUBE_CONFIG_PATH = 'config.KUBE_CONFIG_PATH'
     }
 
     stages {
